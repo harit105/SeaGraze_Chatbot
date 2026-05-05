@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+
 APP_USER="${APP_USER:-root}"
 REPO_URL="${REPO_URL:-https://github.com/harit105/SeaGraze_Chatbot.git}"
 REPO_BRANCH="${REPO_BRANCH:-main}"
@@ -10,9 +11,11 @@ VENV_DIR="${VENV_DIR:-${APP_DIR}/.venv}"
 SERVICE_NAME="${SERVICE_NAME:-seagraze}"
 STREAMLIT_PORT="${STREAMLIT_PORT:-8501}"
 
+
 log() {
   printf "\n==> %s\n" "$1"
 }
+
 
 read_value() {
   local var_name="$1"
@@ -37,6 +40,7 @@ read_value() {
   fi
 }
 
+
 read_secret() {
   local var_name="$1"
   local prompt="$2"
@@ -55,9 +59,11 @@ read_secret() {
   export "$var_name"="$input"
 }
 
+
 log "Install system packages"
 apt update
 apt install -y python3-venv python3-pip git nginx curl ufw
+
 
 log "Fetch source"
 if [[ -d "$REPO_DIR/.git" ]]; then
@@ -68,23 +74,28 @@ else
   git clone --branch "$REPO_BRANCH" "$REPO_URL" "$REPO_DIR"
 fi
 
+
 if [[ ! -d "$APP_DIR" ]]; then
   echo "Expected app directory not found: $APP_DIR"
   exit 1
 fi
+
 
 log "Python environment"
 python3 -m venv "$VENV_DIR"
 "$VENV_DIR/bin/pip" install --upgrade pip
 "$VENV_DIR/bin/pip" install -r "$APP_DIR/requirements.txt"
 
+
 log "Collect runtime secrets"
 read_secret MONGO_URI "MongoDB URI (e.g., mongodb+srv://...)"
 read_secret GOOGLE_API_KEY "Google API key"
 
+
 if [[ -z "${GEMINI_API_KEY:-}" ]]; then
   export GEMINI_API_KEY="$GOOGLE_API_KEY"
 fi
+
 
 log "Write .env"
 cat > "$APP_DIR/.env" <<EOF
@@ -93,6 +104,7 @@ GOOGLE_API_KEY=${GOOGLE_API_KEY}
 GEMINI_API_KEY=${GEMINI_API_KEY}
 EOF
 chmod 600 "$APP_DIR/.env"
+
 
 log "Create systemd service"
 cat > "/etc/systemd/system/${SERVICE_NAME}.service" <<EOF
@@ -104,7 +116,10 @@ After=network.target
 User=${APP_USER}
 WorkingDirectory=${APP_DIR}
 Environment=PATH=${VENV_DIR}/bin
-ExecStart=${VENV_DIR}/bin/streamlit run main.py --server.address 127.0.0.1 --server.port ${STREAMLIT_PORT}
+ExecStart=${VENV_DIR}/bin/streamlit run main.py \
+  --server.address 127.0.0.1 \
+  --server.port ${STREAMLIT_PORT} \
+  --server.headless true
 Restart=always
 RestartSec=5
 
@@ -112,9 +127,11 @@ RestartSec=5
 WantedBy=multi-user.target
 EOF
 
+
 systemctl daemon-reload
 systemctl enable "${SERVICE_NAME}"
 systemctl restart "${SERVICE_NAME}"
+
 
 log "Configure nginx reverse proxy"
 cat > /etc/nginx/sites-available/seagraze <<EOF
@@ -128,15 +145,30 @@ server {
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection "upgrade";
+        proxy_read_timeout 86400;
+    }
+
+    location /_stcore/stream {
+        proxy_pass http://127.0.0.1:${STREAMLIT_PORT}/_stcore/stream;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_read_timeout 86400;
     }
 }
 EOF
+
 ln -sf /etc/nginx/sites-available/seagraze /etc/nginx/sites-enabled/seagraze
 rm -f /etc/nginx/sites-enabled/default
 nginx -t
 systemctl restart nginx
+
 
 log "Configure UFW"
 ufw allow OpenSSH
@@ -144,11 +176,14 @@ ufw allow 80/tcp
 ufw allow 443/tcp
 ufw --force enable
 
-PUBLIC_IP="\$(curl -s https://ifconfig.me || true)"
+
+PUBLIC_IP="$(curl -s https://ifconfig.me || true)"
+
 
 log "Done"
-echo "Open: http://\${PUBLIC_IP:-<droplet-ip>}"
+echo "Open: http://${PUBLIC_IP:-<droplet-ip>}"
 echo "Service status: systemctl status ${SERVICE_NAME}"
-echo "Service logs: journalctl -u ${SERVICE_NAME} -f"
+echo "Service logs:   journalctl -u ${SERVICE_NAME} -f"
+echo "Health check:   curl http://127.0.0.1:${STREAMLIT_PORT}/_stcore/health"
 echo
-echo "IMPORTANT: In MongoDB Atlas Network Access, add \${PUBLIC_IP:-<droplet-ip>}/32 and remove 0.0.0.0/0"
+echo "IMPORTANT: In MongoDB Atlas Network Access, add ${PUBLIC_IP:-<droplet-ip>}/32 and remove 0.0.0.0/0"
