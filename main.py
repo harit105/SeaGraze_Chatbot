@@ -11,7 +11,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ── Page Config ───────────────────────────────────────────────────────────────
-LOGO_PATH = Path("/Users/haritshah/Documents/GitHub/LLMChat/Symbrosia Logo Black Vertical.png")
+from pathlib import Path
+current_dir = Path(__file__).parent if "__file__" in locals() else Path.cwd()
+LOGO_PATH = current_dir / "Symbrosia Logo Black Vertical.png"
 
 def get_base64_image(path: str) -> str:
     with open(path, "rb") as f:
