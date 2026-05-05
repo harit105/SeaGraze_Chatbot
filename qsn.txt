@@ -1,0 +1,3 @@
+Which strain has the most batches recorded?
+Which location code has the least number of culture records?
+Which person (Name) has submitted the most forms, with their name and count?

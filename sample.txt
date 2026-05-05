@@ -1,0 +1,212 @@
+sample = """
+Below are several sample user questions related to the MongoDB document provided,
+and the corresponding MongoDB aggregation pipeline queries that can be used to fetch the desired data.
+Use them wisely.
+Qestion: What is the biomass of batch 251026-A01-05?
+Answer: [{"$match": {"BatchNum": "251026-A01-05"}}, {"$project": {"BatchNum": 1, "Biomassg": 1, "250LBiomassgL": 1, "1350LBiomassgL": 1, "BiomassWeightg/L": 1, "Name": 1, "DateInoculation": 1, "_id": 0}}]
+
+Question: Show all harvests in October 2025
+Answer: [{"$match": {"HarvestDate": {"$regex": "10/.*2025"}}}, {"$project": {"BatchNum": 1, "HarvestDate": 1, "TotalHarvestWeightg": 1, "ReasonForHarvest": 1, "FinalDisposition": 1, "Name": 1, "_id": 0}}]
+
+Question: What nitrogen was added to batch 251026-A01-05?
+Answer: [{"$match": {"BatchNum": "251026-A01-05", "NitrogenMediaVolML": {"$exists": true, "$ne": null}}}, {"$project": {"BatchNum": 1, "NitrogenMediaVolML": 1, "NNutrientConcentration": 1, "BatchNumMediaN": 1, "DateInoculation": 1, "_id": 0}}]
+
+Q: Give me the last 5 batch entries / last 5 inoculated records / most recent 5 transfers
+A:
+[
+  {{
+    "$match": {{
+      "CalcDate": {{ "$ne": null, "$gt": "0" }}
+    }}
+  }},
+  {{
+    "$sort": {{ "CalcDate": -1 }}
+  }},
+  {{
+    "$limit": 5
+  }},
+  {{
+    "$project": {{
+      "BatchNum": 1,
+      "CalcDate": 1,
+      "DateInoculation": 1,
+      "Name": 1,
+      "form_name": 1,
+      "_id": 0
+    }}
+  }}
+]
+
+Question 1: What is the average biomass (g/L) for batch "240101-A01-05-O"?
+
+Query:
+[
+  { "$match": { "BatchNum": "240101-A01-05-O" } },
+  { "$project": { "BiomassWeightg/L": 1, "BatchNum": 1, "_id": 0 } }
+]
+
+Question 2: How many days was batch "240101-A01-05-O" in culture, and what was the final harvest weight?
+
+Query:
+[
+  { "$match": { "BatchNum": "240101-A01-05-O" } },
+  { "$project": {
+      "Day": 1,
+      "TotalHarvestWeightg": 1,
+      "_id": 0
+    }
+  }
+]
+
+Question 3: What were the nitrogen and phosphorus amounts added for batch "240101-A01-05-O"?
+
+Query:
+[
+  { "$match": { "BatchNum": "240101-A01-05-O" } },
+  { "$project": {
+      "NitrogenAddedmL": 1,
+      "PhosphorusAddedmL": 1,
+      "_id": 0
+    }
+  }
+]
+
+Question 4: List all records submitted in January 2024.
+
+Query:
+[
+  { "$match": {
+      "Date_ts": {
+        "$gte": { "$date": "2024-01-01T00:00:00Z" },
+        "$lte": { "$date": "2024-01-31T23:59:59Z" }
+      }
+    }
+  },
+  { "$project": { "BatchNum": 1, "Date": 1, "Name": 1, "_id": 0 } }
+]
+
+Question 5: What were the microscopy scores and contaminants observed for batch "240101-A01-05-O"?
+
+Query:
+[
+  { "$match": { "BatchNum": "240101-A01-05-O" } },
+  { "$project": {
+      "Microscopy1": 1,
+      "Microscopy2": 1,
+      "Microscopy3": 1,
+      "AvgMicroscopy": 1,
+      "Amoebas": 1,
+      "Ciliates": 1,
+      "Diatoms": 1,
+      "Flagellates": 1,
+      "Fungi": 1,
+      "_id": 0
+    }
+  }
+]
+
+Question 6: How many batches were harvested due to culture death?
+
+Query:
+[
+  { "$match": { "ReasonForHarvest": "culture death" } },
+  { "$count": "total_culture_death_harvests" }
+]
+
+Question 7: What is the average culture volume across all 1350L vessels?
+
+Query:
+[
+  { "$match": { "VesselSize": "1350L" } },
+  { "$group": {
+      "_id": null,
+      "avgCultureVolume": { "$avg": "$CultureVolume" }
+    }
+  },
+  { "$project": { "avgCultureVolume": 1, "_id": 0 } }
+]
+
+Q: Give me the last 5 batch entries / most recent 5 records / latest 5 transfers / last 5
+A:
+[
+  {"$sort": {"_id": -1}},
+  {"$limit": 5},
+  {"$project": {"BatchNum": 1, "SourceBatchNum": 1, "DateInoculation": 1, "Name": 1, "Strain": 1, "NewLocationCode": 1, "NewVesselSize": 1}}
+]
+
+Q: Last 3 batches / last 3 records / most recent 3
+A:
+[
+  {"$sort": {"_id": -1}},
+  {"$limit": 3},
+  {"$project": {"BatchNum": 1, "DateInoculation": 1, "Name": 1, "Strain": 1}}
+]
+
+Q: Top 5 highest biomass weights / highest Biomassg / heaviest batches
+A:
+[
+  {"$match": {"Biomassg": {"$ne": null, "$gt": "0"}}},
+  {"$addFields": {"_sortVal": {"$toDouble": "$Biomassg"}}},
+  {"$sort": {"_sortVal": -1}},
+  {"$limit": 5},
+  {"$project": {"BatchNum": 1, "Biomassg": 1, "DateInoculation": 1, "Name": 1, "Strain": 1, "NewVesselSize": 1, "_sortVal": 0}}
+]
+
+Q: Top 5 highest wet weights / highest harvest weight
+A:
+[
+  {"$match": {"WetWeightg": {"$ne": null, "$gt": "0"}}},
+  {"$addFields": {"_sortVal": {"$toDouble": "$WetWeightg"}}},
+  {"$sort": {"_sortVal": -1}},
+  {"$limit": 5},
+  {"$project": {"BatchNum": 1, "WetWeightg": 1, "DateHarvest": 1, "Name": 1, "Strain": 1, "_sortVal": 0}}
+]
+
+Q: Show transfers to 1350L vessel / vessel size 1350
+A:
+[
+  {"$match": {"NewVesselSize": "1350"}},
+  {"$sort": {"_id": -1}},
+  {"$project": {"BatchNum": 1, "DateInoculation": 1, "Name": 1, "NewLocationCode": 1, "NewVesselSize": 1, "Strain": 1}}
+]
+
+Q: Show all organic transfers / organic only
+A:
+[
+  {"$match": {"Organic": "Organic"}},
+  {"$sort": {"_id": -1}},
+  {"$project": {"BatchNum": 1, "DateInoculation": 1, "Name": 1, "Organic": 1, "Strain": 1}}
+]
+
+Q: Find batch 251026-A01-05 / look up specific batch number
+A:
+[
+  {"$match": {"BatchNum": "251026-A01-05"}},
+  {"$project": {"BatchNum": 1, "SourceBatchNum": 1, "DateInoculation": 1, "Name": 1, "Strain": 1, "NewLocationCode": 1, "NewVesselSize": 1, "Biomassg": 1}}
+]
+
+Q: Show transfers for strain 05 / strain 11
+A:
+[
+  {"$match": {"Strain": "05"}},
+  {"$sort": {"_id": -1}},
+  {"$limit": 10},
+  {"$project": {"BatchNum": 1, "SourceBatchNum": 1, "DateInoculation": 1, "Name": 1, "Strain": 1}}
+]
+
+Q: Count total records / how many records
+A:
+[
+  {"$count": "total"}
+]
+
+Q: Show 3 sample records / what fields exist / show me a sample
+A:
+[
+  {"$limit": 3}
+]
+
+Each of these queries is designed to run within MongoDB's aggregation framework to extract specific
+information based on the user's questions. The $project step is used to format the output to include
+only relevant fields.
+"""
