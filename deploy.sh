@@ -80,11 +80,16 @@ python3 -m venv "$VENV_DIR"
 
 log "Collect runtime secrets"
 read_secret MONGO_URI "MongoDB URI (e.g., mongodb+srv://...)"
-read_secret GEMINI_API_KEY "Gemini API key"
+read_secret GOOGLE_API_KEY "Google API key"
+
+if [[ -z "${GEMINI_API_KEY:-}" ]]; then
+  export GEMINI_API_KEY="$GOOGLE_API_KEY"
+fi
 
 log "Write .env"
 cat > "$APP_DIR/.env" <<EOF
 MONGO_URI=${MONGO_URI}
+GOOGLE_API_KEY=${GOOGLE_API_KEY}
 GEMINI_API_KEY=${GEMINI_API_KEY}
 EOF
 chmod 600 "$APP_DIR/.env"

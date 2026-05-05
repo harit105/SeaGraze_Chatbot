@@ -203,7 +203,12 @@ html { scroll-behavior: smooth; }
 """, unsafe_allow_html=True)
 
 # ── API Key ───────────────────────────────────────────────────────────────────
-google_api_key = os.getenv("GOOGLE_API_KEY") or st.secrets.get("GOOGLE_API_KEY", "")
+google_api_key = (
+    os.getenv("GOOGLE_API_KEY")
+    or os.getenv("GEMINI_API_KEY")
+    or st.secrets.get("GOOGLE_API_KEY", "")
+    or st.secrets.get("GEMINI_API_KEY", "")
+)
 if not google_api_key:
     st.error("Missing GOOGLE_API_KEY.")
     st.stop()
