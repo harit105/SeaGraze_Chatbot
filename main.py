@@ -275,7 +275,62 @@ CRITICAL FACTS ABOUT THIS COLLECTION:
 | BatchTrackingAdded      | Boolean         | true if added to batch tracking                                        |
 | Comments                | String          | Free text notes — often null                                           |
 """,
+   
+     "AWS_Data_Internal_Bi_BatchTracking": """
+## VERIFIED FIELD SCHEMA — AWS Batch Tracking (AWS_Data_Internal_Bi_BatchTracking)
+CRITICAL FACTS ABOUT THIS COLLECTION:
+1. This collection uses `batch_id` (NOT `BatchNum`) as the primary batch identifier — NEVER use BatchNum here.
+2. NO form_name field — NEVER filter on form_name.
+3. NO CalcDate field — NEVER filter or sort on CalcDate.
+4. Use _id: -1 for all recency sorting — ObjectId encodes insertion time.
+5. NEVER mix inclusion and exclusion in $project — use $unset to remove helper fields first.
 
+| Raw MongoDB Field Name | Type          | Notes                                       |
+|------------------------|---------------|---------------------------------------------|
+| _id                    | ObjectId      | Sort _id: -1 for most recent records        |
+| batch_id               | String        | Primary batch identifier e.g. "240913-A10"  |
+| gcms_num               | String        | GCMS reference number e.g. "Q24-0898"       |
+| harvest_date           | String        | Most recent harvest date as YYYY-MM-DD      |
+| harvest_count          | Number        | Total number of harvests (stored as Number) |
+| harvest_dates          | Array[String] | All harvest dates as YYYY-MM-DD strings     |
+| tree                   | Array[Object] | Array of tree/culture tracking objects      |
+""",
+"Batch Tracking": """
+## VERIFIED FIELD SCHEMA — Batch Tracking
+
+CRITICAL FACTS ABOUT THIS COLLECTION:
+1. This collection tracks the lineage/history of a batch across transfers.
+2. The primary identifier is `BatchNum` (String).
+3. `History` is an Array of Strings — each element is a comma-separated list of BatchNums at that lineage level.
+4. NEVER project fields like SourceBatchNum, Biomassg, DateInoculation — they do NOT exist here.
+5. Use _id: -1 for all recency sorting.
+6. NEVER mix inclusion and exclusion in $project.
+
+| Raw MongoDB Field Name | Type          | Notes                                                      |
+|------------------------|---------------|------------------------------------------------------------|
+| _id                    | ObjectId      | Sort _id: -1 for most recent records                       |
+| BatchNum               | String        | Current/destination batch ID e.g. "251203-D01-05"         |
+| History                | Array[String] | Lineage history; each element = comma-separated BatchNums |
+
+## RESPONSE FORMAT — MANDATORY FOR THIS COLLECTION
+When displaying History, render as a top-down chain like this:
+
+251203-D01-05
+        →
+251128-X01-05 || 251128-X02-05
+        →
+251116-B11-05 || 251116-B02-05 || 251116-B08-05
+        →
+251104-A12-05 || 251104-B05-05 || 251104-A11-05
+
+Rules:
+- History[0] (queried batch) is ALWAYS at the TOP.
+- Each subsequent History level goes one row DOWN.
+- Batches within the same generation are joined with ||
+- Generations are connected with →
+- NO labels like "Parents", "Grandparents", "Great-grandparents".
+
+""",
     "OC-WI-11.01 Outdoor Harvest": """
 ## VERIFIED FIELD SCHEMA — Outdoor Harvest (OC-WI-11.01)
 CRITICAL: No form_name, no CalcDate. All numeric fields stored as Strings.
@@ -352,6 +407,7 @@ into MongoDB aggregation pipeline queries.
 - Always use the EXACT Raw MongoDB Field Name from the schema above.
 - NEVER filter on form_name — it does not exist in these collections.
 - NEVER filter or sort on CalcDate — it does not exist in these collections.
+- NEVER use $replaceByRegex — it does not exist. For string replacement use $replaceAll or $replaceOne. For regex matching use $regexMatch or $regexFind.
 - ALL numeric-looking fields are stored as STRINGS (Biomassg, WetWeightg, NewVesselSize, etc.)
   ALWAYS use $toDouble to convert before any numeric sort or numeric comparison.
 
@@ -386,6 +442,7 @@ into MongoDB aggregation pipeline queries.
 - For Organic filter: match as {{"Organic": "Organic"}} — String, not boolean.
 - For nullable fields: add {{"$ne": null}} in $match before using them.
 - BatchNum partial match: {{"BatchNum": {{"$regex": "251026", "$options": "i"}}}}.
+- EXCEPTION — for collection 'AWS_Data_Internal_Bi_BatchTracking': use `batch_id` instead of `BatchNum` for ALL batch-related filters and projections. Example: {{"batch_id": {{"$regex": "240913", "$options": "i"}}}}. NEVER use BatchNum in this collection. Always include batch_id in $project output for this collection instead of BatchNum.
 - Always include BatchNum in $project output.
 
 ## SAMPLE QUESTIONS AND QUERIES
@@ -429,7 +486,7 @@ with st.sidebar:
         <div class="sidebar-logo-container">
             <img src="data:image/png;base64,{logo_b64}" alt="Symbrosia">
             <div>
-                <div class="sidebar-brand-name">Seagraze Brain</div>
+                <div class="sidebar-brand-name">SeaGraze® Brain</div>
                 <div class="sidebar-brand-sub">by Symbrosia</div>
             </div>
         </div>""", unsafe_allow_html=True)
@@ -438,7 +495,7 @@ with st.sidebar:
         <div class="sidebar-logo-container">
             <span style="font-size:22px">🌿</span>
             <div>
-                <div class="sidebar-brand-name">Seagraze Brain</div>
+                <div class="sidebar-brand-name">SeaGraze® Brain</div>
                 <div class="sidebar-brand-sub">by Symbrosia</div>
             </div>
         </div>""", unsafe_allow_html=True)
@@ -491,14 +548,14 @@ if not st.session_state.messages:
         st.markdown(f"""
         <div class="main-header-container">
             <img src="data:image/png;base64,{logo_b64}" class="main-logo" alt="Symbrosia">
-            <div class="main-title">Seagraze Brain</div>
+            <div class="main-title">SeaGraze® Brain</div>
             <div class="main-subtitle">Ask anything about your algae culture data</div>
         </div>""", unsafe_allow_html=True)
     else:
         st.markdown("""
         <div class="main-header-container">
             <div style="font-size:48px">🌿</div>
-            <div class="main-title">Seagraze Brain</div>
+            <div class="main-title">SeaGraze® Brain</div>
             <div class="main-subtitle">Ask anything about your algae culture data</div>
         </div>""", unsafe_allow_html=True)
 
